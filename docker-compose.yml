@@ -1,0 +1,75 @@
+version: "3.9"
+
+services:
+  frontend:
+    build: ./frontend
+    container_name: lab_frontend
+    env_file: ./.env
+    working_dir: /app
+    ports:
+      - "${FRONTEND_PORT}:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: sh -c "npm ci && npm run dev -- --host"
+    networks: [appnet]
+
+  backend:
+    build: ./backend
+    container_name: lab_backend
+    env_file: ./.env
+    working_dir: /app
+    ports:
+      - "${BACKEND_PORT}:3000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: sh -c "npm ci && npm run start:dev"
+    depends_on:
+      - db
+    networks: [appnet]
+
+  db:
+    image: postgres:16-alpine
+    container_name: lab_postgres
+    environment:
+      POSTGRES_DB: ${PG_DB}
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+    ports:
+      - "${PG_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [appnet]
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: lab_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+    ports:
+      - "${PGADMIN_PORT}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - db
+    networks: [appnet]
+
+  nginx:
+    build: ./nginx
+    container_name: lab_nginx
+    ports:
+      - "${NGINX_PORT}:80"
+    depends_on:
+      - frontend
+      - backend
+    networks: [appnet]
+
+networks:
+  appnet:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  pgadmin_data:
